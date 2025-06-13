@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from sklearn.cluster import KMeans
 from scipy.ndimage import gaussian_filter
 from scipy.signal import convolve2d
-from skimage import color,data,restoration,io
+from skimage import restoration
 import time
 from scipy.ndimage import gaussian_filter
 import psutil
@@ -21,8 +21,6 @@ os.environ["NUMEXPR_NUM_THREADS"] = "1"
 p = psutil.Process(os.getpid())
 p.cpu_affinity([0]) 
 ###
-
-
 
 image = cv2.imread('imgastronaut.jpg')
 image = cv2.resize(image, (512, 512))
@@ -42,23 +40,21 @@ def show_image(title, img):
 # for the save times
 times = {}
 
-
-
 # --- 1. Canny Edge Detection ---
 start = time.time()
-canny = cv2.Canny(image, 100, 200)
-
+for _ in range(1000):
+    canny = cv2.Canny(image, 100, 200)
 end = time.time()
-times["Canny"] = end - start
+times["Canny"] = (end - start) / 1000
 plt.imshow(canny, cmap='gray')
 plt.title("canny")
 plt.show()
 
 
-##-- Deblur --
+###
+## Deblur -- 
 start = time.time()
 
-# Assume `image` is already loaded as a BGR image (e.g., via cv2.imread)
 image_float = image.astype(np.float32) / 255.0
 
 # Create PSF (Point Spread Function)
@@ -85,7 +81,7 @@ blurred_uint8 = np.clip(blurred_color * 255, 0, 255).astype(np.uint8)
 deconvolved_uint8 = np.clip(deconvolved_color * 255, 0, 255).astype(np.uint8)
 
 end = time.time()
-times["deblur"] = end - start
+times["Deblurring"] = end - start
 
 plt.figure(figsize=(12, 4))
 plt.subplot(1, 3, 1)
@@ -108,36 +104,40 @@ plt.show()
 
 
 
+#######################################################
 # --- 3. Gaussian Blur ---
 start = time.time()
-gauss = gaussian_filter(image, sigma=1)
+gauss = gaussian_filter(image, sigma=2)
 end = time.time()
 times["Gaussian"] = end - start
-show_image("Gaussian", gauss)
 
-# --- 4. Gradient (Sobel) ---
-#start = time.time()
-#sobelx = cv2.Sobel(image, cv2.CV_64F, 1, 0, ksize=3)
-#sobely = cv2.Sobel(image, cv2.CV_64F, 0, 1, ksize=3)
-#gradient = cv2.magnitude(sobelx, sobely)
-#end = time.time()
-#times["Gradient"] = end - start
-#show_image("Gradient", np.uint8(gradient))
+plt.figure()
+plt.title('Gaussian filter')
+plt.imshow(cv2.cvtColor(gauss, cv2.COLOR_BGR2RGB))
+plt.axis('off')
+plt.show()
 
+
+# --- 4. Gradient ---
 gray_img = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
 start = time.time()
-sobelx = cv2.Sobel(gray_img, cv2.CV_64F, 1, 0, ksize=3)
-sobely = cv2.Sobel(gray_img, cv2.CV_64F, 0, 1, ksize=3)
-gradient = cv2.magnitude(sobelx, sobely)
+for _ in range(1000):
+    sobelx = cv2.Sobel(gray_img, cv2.CV_64F, 1, 0, ksize=3)
+    sobely = cv2.Sobel(gray_img, cv2.CV_64F, 0, 1, ksize=3)
+    gradient = cv2.magnitude(sobelx, sobely)
 end = time.time()
 
-times["Gradient"] = end - start
-show_image("Gradient", np.uint8(gradient))
+times["Gradient"] = (end - start) / 1000
 
+plt.figure()
+plt.title('Gradient filter')
+plt.imshow(gradient, cmap='gray')
+plt.axis('off')
+plt.show()
 
 #################################################
-# --- 5. K-means Segmentation ---
+# --- 5. K-means Segmentation --- 
 start = time.time()
 pixel_values  =  image.reshape((-1, 3))
 pixel_values  = np.float32(pixel_values )
@@ -154,10 +154,11 @@ end = time.time()
 times["K-means"] = end - start
 show_image("K-means segmentation",segmented_image)
 ###################################################
+
 # --- 6. Matrix Multiplication --- 
 start = time.time()
-mat1 = np.random.rand(256, 256).astype(np.float32)
-mat2 = np.random.rand(256, 256).astype(np.float32)
+mat1 = np.random.rand(1000, 1000).astype(np.float32)
+mat2 = np.random.rand(1000, 1000).astype(np.float32)
 mat1_tf = tf.convert_to_tensor(mat1)
 mat2_tf = tf.convert_to_tensor(mat2)
 result = tf.matmul(mat1_tf, mat2_tf)
@@ -169,72 +170,101 @@ matrix_vis = matrix_vis.astype(np.uint8)
 
 plt.imshow(matrix_vis)
 plt.colorbar()
-plt.title("Matrix Multiplication Output")
+plt.title("Matrix Multiplication")
 plt.show()
-
 
 
 # --- 7. Bicubic Resize ---
 start = time.time()
-bicubic = cv2.resize(image, (1024, 1024), interpolation=cv2.INTER_CUBIC)
+for _ in range(1000):
+    bicubic = cv2.resize(image, (500, 400), interpolation=cv2.INTER_CUBIC)
 end = time.time()
-times["bicubic"] = end - start
+times["Bicubic"] = (end - start) / 1000
 show_image("Resize Bicubic", bicubic)
 
 # --- 8. Bilinear Resize --- 
 start = time.time()
-bilinear = cv2.resize(image, (1024, 1024), interpolation=cv2.INTER_LINEAR)
+for _ in range(1000):
+    bilinear = cv2.resize(image, (500, 400), interpolation=cv2.INTER_LINEAR)
 end = time.time()
-times["bilinear"] = end - start
+times["Bilinear"] = (end - start) / 1000
 show_image("Resize Bilinear", bilinear)
 
-# --- 9. Rotation 45 degrees --- 
+# --- 9. Rotation 45 degrees ---
 start = time.time()
-h, w = image.shape[:2]
-M = cv2.getRotationMatrix2D((w/2, h/2), 45, 1)
-rotated = cv2.warpAffine(image, M, (w, h))
+for _ in range(1000):
+    h, w = image.shape[:2]
+    M = cv2.getRotationMatrix2D((w/2, h/2), 45, 1)
+    rotated = cv2.warpAffine(image, M, (w, h))
 end = time.time()
-times["Rotation"] = end - start
+times["Rotation"] = (end - start) / 1000
 show_image("Rotation", rotated)
 
-# --- 10. 2D Convolution ---
-kernel = np.array([[1, 0, -1],
-                    [0, 0,0], 
-                    [-1, 0, 1]]) ## setted for the edge detection
-
+# --- 10. 2D Convolution --- 
 start = time.time()
+kernel = np.ones((5, 5), dtype=np.float32) / 25
 conv2d = cv2.filter2D(image, -1, kernel) ## -1 same depth for the input and output
 end = time.time()
-times["Conv2D"] = end - start
+times["Conv2D"] = (end - start) 
 show_image("2D Convolution", conv2d)
 
-# --- 11. PDE (Heat Equation Simulation) ---
-def pde_diffusion(image, iterations=50, dt=0.1):
-    image_pde = image.astype(np.float32) / 255.0
-    for _ in range(iterations):
-        laplacian = cv2.Laplacian(image_pde, cv2.CV_32F)
-        image_pde += dt * laplacian
-    image_pde = np.clip(image_pde * 255, 0, 255).astype(np.uint8)
-    return image_pde
+###---------3D Convolution--------
+
+### 3D image
+image_np = np.random.rand(1, 64, 64, 64, 1).astype(np.float32)  # [batch, depth, height, width, channels]
+# Kernel
+kernel_np = np.ones((5, 5, 5, 1, 1), dtype=np.float32) / 125
+
+image_tensor = tf.constant(image_np)
+kernel_tensor = tf.constant(kernel_np)
 
 start = time.time()
-image_pde = pde_diffusion(image, iterations=50, dt=0.05)
+conv3d = tf.nn.conv3d(image_tensor, kernel_tensor, strides=[1, 1, 1, 1, 1], padding='SAME')
+end = time.time()
+
+times["Conv3D"] = (end - start)
+
+
+
+# --- 11. PDE (Heat Equation Simulation) ---
+def pde_heat_equation(image, iterations=40, dt=0.1):
+    pde_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    u = pde_image.astype(np.float32) / 255.0
+
+    for _ in range(iterations):
+        laplacian = (
+            -4 * u
+            + np.roll(u, 1, axis=0)
+            + np.roll(u, -1, axis=0)
+            + np.roll(u, 1, axis=1)
+            + np.roll(u, -1, axis=1)
+        )
+        u += dt * laplacian
+
+    u = np.clip(u * 255, 0, 255).astype(np.uint8)
+    return u
+
+start = time.time()
+image_pde = pde_heat_equation(image)
 end = time.time()
 
 times["PDE"] = end - start
-show_image("PDE", image_pde)
+plt.figure()
+plt.title('PDE')
+plt.imshow(image_pde, cmap='hot')
+plt.axis('off')
+plt.show()
 
 # --- Zaman Grafiği ---
 plt.figure(figsize=(12, 6))
-plt.bar(list(times.keys()), list(times.values()), color='orange')
-plt.xlabel("seconds")
+plt.bar(list(times.keys()), list(times.values()))
+plt.ylabel("seconds")
 plt.title("CPU-1 Compare")
 plt.tight_layout()
 plt.show()
 
 ###########
-print("\n--- Execution Time Table ---")
-print("Operation           Time (s)")
-print("-----------------------------")
+print("\n--- Execution Time Table --- " \
+        "\n -------------------------")
 for op, t in times.items():
     print(f"{op:<20} {t:.6f}")

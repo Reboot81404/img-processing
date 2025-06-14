@@ -211,20 +211,36 @@ show_image("2D Convolution", conv2d)
 ###---------3D Convolution--------
 
 ### 3D image
+start = time.time()
 image_np = np.random.rand(1, 64, 64, 64, 1).astype(np.float32)  # [batch, depth, height, width, channels]
-# Kernel
 kernel_np = np.ones((5, 5, 5, 1, 1), dtype=np.float32) / 125
 
 image_tensor = tf.constant(image_np)
 kernel_tensor = tf.constant(kernel_np)
 
-start = time.time()
 conv3d = tf.nn.conv3d(image_tensor, kernel_tensor, strides=[1, 1, 1, 1, 1], padding='SAME')
+conv3d_np = conv3d.numpy()[0, :, :, :, 0]  # [depth, height, width]
+
 end = time.time()
+times["Conv3d"] = end - start
 
-times["Conv3D"] = (end - start)
+threshold = 0.5  # Görünürlük eşiği
+voxels = conv3d_np > threshold
 
+fig = plt.figure(figsize=(8, 8))
+ax = fig.add_subplot(111, projection='3d')
 
+z, y, x = np.where(voxels)
+
+# Noktaları çiz
+ax.scatter(x, y, z, c=conv3d_np[voxels], cmap='viridis', marker='s', s=5)
+
+ax.set_xlabel('Width')
+ax.set_ylabel('Height')
+ax.set_zlabel('Depth')
+ax.set_title('Conv3D')
+
+plt.show()
 
 # --- 11. PDE (Heat Equation Simulation) ---
 def pde_heat_equation(image, iterations=40, dt=0.1):
